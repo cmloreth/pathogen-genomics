@@ -1,6 +1,20 @@
 version 1.0
 
-task Genbank_curate {
+workflow genbank_curate {
+    input {
+        String  Google_Maps_API_Key
+    }
+    call pull_data {
+        Google_Maps_API_Key = Google_Maps_API_Key
+    }
+    output {
+        File    seqs_fasta = pull_data.genbank_seqs_fasta
+        File    seqs_metadata = pull_data.genbank_seq_metadata
+    }
+}
+
+
+task pull_data {
 
     input {
         String  Google_Maps_API_Key
