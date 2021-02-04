@@ -5,11 +5,12 @@ workflow genbank_curate {
         String  Google_Maps_API_Key
     }
     call pull_data {
-        Google_Maps_API_Key = Google_Maps_API_Key
+        input:
+            Google_Maps_API_Key = Google_Maps_API_Key
     }
     output {
         File    seqs_fasta = pull_data.genbank_seqs_fasta
-        File    seqs_metadata = pull_data.genbank_seq_metadata
+        File    seqs_metadata = pull_data.genbank_seqs_metadata
     }
 }
 
@@ -27,7 +28,7 @@ task pull_data {
   output {
     File                genbank_seqs_fasta = 'genbank_seqs.fasta'
     File                genbank_seqs_metadata = 'genbank_seq_metadata.tsv'
-  }
+}
 
   runtime {
     docker: "cmloreth/pathogen-genomics:test"
