@@ -433,6 +433,7 @@ def write_tsv_files(response_content, gmaps_client):
         ("title", None)
     ])
 
+    memo = {}
     with open("genbank_seqs.fasta", "w") as outfasta:
         with open("genbank_seq_metadata.tsv", "w") as outf:
 
