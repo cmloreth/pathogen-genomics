@@ -6,6 +6,19 @@ import requests
 from collections import OrderedDict
 import dateutil.parser
 
+memo = {}
+
+
+def memoize(f):
+    def helper(x, y):
+        if x not in memo:     
+            memo[x] = f(x, y)
+        else:
+            #print("cache hit!",x)
+            pass
+        return memo[x]
+    return helper
+
 
 def make_gmaps_client(api_key):
     """Create google maps client with api_key."""
@@ -361,12 +374,13 @@ def get_most_precise_location(gmaps_response, level_spec, short_name=False):
 
     return None
 
-
+@memoize
 def geocode_location(location_str, gmaps_client):
     """Get geo location details for a given location."""
 
     reformatted_location_str = ",".join([x.strip() for x in reversed(location_str.split(":"))]).replace(", ", ",").replace(",", ", ")
     geocode_result = gmaps_client.geocode(reformatted_location_str)
+    print(geocode_result) # returns empty list at 45200 seqs
 
     if len(geocode_result) > 0:
         location = geocode_result[0]["geometry"]["location"]
@@ -380,7 +394,7 @@ def geocode_location(location_str, gmaps_client):
     found_division = get_most_precise_location(geocode_result, "administrative_area_level_1") or found_country
     found_location = get_most_precise_location(geocode_result, loc_precision[0])
 
-    memo = {"lat": location["lat"],
+    return {"lat": location["lat"],
             "lng": location["lng"],
             "continent": found_continent,
             "location_precision": loc_precision,
@@ -389,7 +403,6 @@ def geocode_location(location_str, gmaps_client):
             "location": found_location if found_location != found_division else found_division,
             "loc_category": get_loc_category(geocode_result) or found_continent
             }
-    return memo
 
 
 def write_tsv_files(response_content, gmaps_client):
@@ -433,6 +446,7 @@ def write_tsv_files(response_content, gmaps_client):
         ("title", None)
     ])
 
+    # instantiate dictionary to hold all info until write to file
     memo = {}
     with open("genbank_seqs.fasta", "w") as outfasta:
         with open("genbank_seq_metadata.tsv", "w") as outf:
@@ -446,6 +460,8 @@ def write_tsv_files(response_content, gmaps_client):
                     continue
 
                 loc = geocode_location(row["location"], gmaps_client)
+                memo[row["location"]] = loc
+                # nemo.append(dict(loc))
 
                 if row["host"] == "Homo sapiens" and normalize_homo_sapiens_to_human:
                     host = "Human"
@@ -506,7 +522,7 @@ def write_tsv_files(response_content, gmaps_client):
             outf.write("\t".join([location] + [str(loc[location]["lat"]), str(loc[location]["lng"])]) + "\n")
 
 
-def call_ncbi(email):
+def call_ncbi(user_email):
     """Call ncbi to get back response."""
 
     VIRUS_TAXON_ID = "2697049"  # NCBI taxon ID
@@ -558,10 +574,10 @@ def call_ncbi(email):
 
         # This isn't Entrez, but include the same email parameter it requires just
         # to be nice.
-        'email': email,
+        'email': user_email,
     }
 
-    headers = {'User-Agent': 'https://github.com/broadinstitute/viral-pipelines ({})'.format(email)}
+    headers = {'User-Agent': 'https://github.com/broadinstitute/viral-pipelines ({})'.format(user_email)}
 
     response = requests.get(endpoint, params=params, headers=headers, stream=True)
     response.raise_for_status()
