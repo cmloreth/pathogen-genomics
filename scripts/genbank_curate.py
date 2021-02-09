@@ -11,17 +11,20 @@ memo = {}
 
 def memoize(f):
     def helper(x, y):
-        if x not in memo:     
+        if x not in memo:
             memo[x] = f(x, y)
         else:
-            #print("cache hit!",x)
+            # print("cache hit!",x)
             pass
         return memo[x]
     return helper
 
 
-def make_gmaps_client(api_key):
+def make_gmaps_client(api_key_file):
     """Create google maps client with api_key."""
+
+    with open(api_key_file, "r") as key_file:
+        api_key = key_file.readline()
 
     gmaps = googlemaps.Client(key=api_key)
 
@@ -593,13 +596,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='curate files for genbank submission.')
 
-    parser.add_argument('-k', '--google_maps_api_key', required=True, help='api key for google maps.')
+    parser.add_argument('-k', '--google_maps_api_key_file', required=True, help='api key for google maps.')
     parser.add_argument('-e', '--user_email', required=True, help='name of metadata .tsv file with fasta headers to be extracted from full fasta.')
 
     args = parser.parse_args()
 
     # create google maps client
-    gmaps_client = make_gmaps_client(args.google_maps_api_key)
+    gmaps_client = make_gmaps_client(args.google_maps_api_key_file)
 
     # call the ncbi endpoint to get back response
     response_content = call_ncbi(args.user_email)
