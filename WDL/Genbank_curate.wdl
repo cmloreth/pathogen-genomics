@@ -2,11 +2,11 @@ version 1.0
 
 workflow genbank_curate {
     input {
-        String  Google_Maps_API_Key
+        File  Google_Maps_API_Key_File
     }
     call pull_data {
         input:
-            Google_Maps_API_Key = Google_Maps_API_Key
+            Google_Maps_API_Key_File = Google_Maps_API_Key_File
     }
     output {
         File    seqs_fasta = pull_data.genbank_seqs_fasta
@@ -18,11 +18,11 @@ workflow genbank_curate {
 task pull_data {
 
     input {
-        String  Google_Maps_API_Key
+        String  Google_Maps_API_Key_File
     }
 
     command {
-        python3 ~/scripts/genbank_curate.py ~{Google_Maps_API_Key}
+        python3 ~/scripts/genbank_curate.py ~{Google_Maps_API_Key_File}
     }
 
   output {
