@@ -596,8 +596,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='curate files for genbank submission.')
 
-    parser.add_argument('-k', '--google_maps_api_key_file', required=True, help='api key for google maps.')
-    parser.add_argument('-e', '--user_email', required=True, help='name of metadata .tsv file with fasta headers to be extracted from full fasta.')
+    parser.add_argument('-k', '--google_maps_api_key_file', required=True, type=str, help='api key for google maps.')
+    parser.add_argument('-e', '--user_email', required=True, type=str, help='name of metadata .tsv file with fasta headers to be extracted from full fasta.')
 
     args = parser.parse_args()
 
