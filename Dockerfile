@@ -28,8 +28,8 @@ RUN rm /usr/bin/lsb_release \
 
 COPY scripts /scripts
 
-# COPY requirements.txt .
-# RUN pip3 install -r requirements.txt
+COPY requirements.txt .
+RUN pip3 install -r requirements.txt
 
 ENV PYTHONPATH "/scripts:${PYTHONPATH}"
 
