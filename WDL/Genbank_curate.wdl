@@ -3,10 +3,12 @@ version 1.0
 workflow genbank_curate {
     input {
         File  Google_Maps_API_Key_File
+        String  user_email
     }
     call pull_data {
         input:
-            Google_Maps_API_Key_File = Google_Maps_API_Key_File
+            Google_Maps_API_Key_File = Google_Maps_API_Key_File,
+            user_email = user_email
     }
     output {
         File    seqs_fasta = pull_data.genbank_seqs_fasta
@@ -18,11 +20,12 @@ workflow genbank_curate {
 task pull_data {
 
     input {
-        String  Google_Maps_API_Key_File
+        File  Google_Maps_API_Key_File
+        String  user_email
     }
 
     command {
-        python3 ~/scripts/genbank_curate.py ~{Google_Maps_API_Key_File}
+        python3 ~/scripts/genbank_curate.py -k ~{Google_Maps_API_Key_File} -e ~{user_email}
     }
 
   output {
