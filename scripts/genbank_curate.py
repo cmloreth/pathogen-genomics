@@ -380,12 +380,13 @@ def geocode_location(location_str, gmaps_client):
 
     reformatted_location_str = ",".join([x.strip() for x in reversed(location_str.split(":"))]).replace(", ", ",").replace(",", ", ")
     geocode_result = gmaps_client.geocode(reformatted_location_str)
-    print(geocode_result) # returns empty list at 45200 seqs
 
-    if len(geocode_result) > 0:
-        location = geocode_result[0]["geometry"]["location"]
+    # if geocode_response is empty print the failed information
+    if not geocode_result:
+        return
     else:
-        pass
+        location = geocode_result[0]["geometry"]["location"]
+        # print(geocode_result)
 
     found_continent = get_continent(geocode_result)
     found_country = get_country(geocode_result)
@@ -460,7 +461,10 @@ def write_tsv_files(response_content, gmaps_client):
                     continue
 
                 loc = geocode_location(row["location"], gmaps_client)
-                memo[row["location"]] = loc
+                if loc is not None:
+                    memo[row["location"]] = loc
+                else:
+                    continue
                 # nemo.append(dict(loc))
 
                 if row["host"] == "Homo sapiens" and normalize_homo_sapiens_to_human:
@@ -514,12 +518,10 @@ def write_tsv_files(response_content, gmaps_client):
                         break
 
     with open("genbank_locations_map.tsv", "w") as outf:
+        print("Writing genbank_locations_map.tsv file.")
         outf.write("name\tlat\tlon\tprecision\n")
-        # TODO: determine what the original format of memo is
-        # is memo == loc in this case since we removed memoize
-        # replaced memo with loc in loop to test
-        for location in sorted(loc):
-            outf.write("\t".join([location] + [str(loc[location]["lat"]), str(loc[location]["lng"])]) + "\n")
+        for location in sorted(memo):
+            outf.write("\t".join([location] + [str(memo[location]["lat"]), str(memo[location]["lng"])]) + "\n")
 
 
 def call_ncbi(user_email):
@@ -577,7 +579,7 @@ def call_ncbi(user_email):
         'email': user_email,
     }
 
-    headers = {'User-Agent': 'https://github.com/broadinstitute/viral-pipelines ({})'.format(user_email)}
+    headers = {f'User-Agent': 'https://github.com/broadinstitute/viral-pipelines ({user_email})'}
 
     response = requests.get(endpoint, params=params, headers=headers, stream=True)
     response.raise_for_status()
