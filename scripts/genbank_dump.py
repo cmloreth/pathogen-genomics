@@ -593,7 +593,7 @@ def write_tsv_files(response_content, gmaps_client,
                 dw.writerow(fields_to_write)
 
                 # write sequence to output fasta
-                outfasta.write(">{accession}\n{seq}\n\n".format(accession=row["genbank_accession"], seq=row["sequence"]))
+                outfasta.write(">{accession}\n{seq}\n\n".format(accession=strain, seq=row["sequence"]))
 
                 if (idx + 1) % 50 == 0:
                     print("Found data for %s seqs" % (idx + 1))
