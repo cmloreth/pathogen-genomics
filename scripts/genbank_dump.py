@@ -1,24 +1,23 @@
-import argparse
-import googlemaps
+#!/usr/bin/env python
+
+import argparse # conda install -c conda-forge googlemaps
 from datetime import datetime
 import csv
+import re
 import requests
 from collections import OrderedDict
 import dateutil.parser
 
-memo = {}
-
+import googlemaps
+import pycountry
 
 def memoize(f):
-    def helper(x, y):
-        if x not in memo:
-            memo[x] = f(x, y)
-        else:
-            # print("cache hit!",x)
-            pass
-        return memo[x]
+    memos_stored = {}
+    def helper(x):
+        if x not in memos_stored:            
+            memos_stored[x] = f(x)
+        return memos_stored[x]
     return helper
-
 
 def make_gmaps_client(api_key_file):
     """Create google maps client with api_key."""
@@ -29,7 +28,6 @@ def make_gmaps_client(api_key_file):
     gmaps = googlemaps.Client(key=api_key)
 
     return gmaps
-
 
 def get_continent(gmaps_response):
     """Get the continent for a two-letter country code."""
@@ -289,6 +287,30 @@ def get_continent(gmaps_response):
 
     return continent_for_country.get(get_country(gmaps_response, short_name=True), "NA")
 
+def get_full_country_name(country_abbrv):
+    """
+     Get the full country name (no spaces) given a three-letter ISO 3166-1 country code
+     See: https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3
+          https://www.iso.org/obp/ui/#search
+    """
+    try:
+        return pycountry.countries.get(alpha_3=country_abbrv).name.replace(" ","")
+    except Exception as e:
+        return country_abbrv
+
+@memoize
+def rename_country_to_gisaid_version(country):
+
+    genbank_to_gisaid_map = {
+        "UnitedStates":"USA",
+        "Myanmar(Burma)":"Myanmar",
+        "U.S.VirginIslands":"USA",
+        "Czechia":"Czech Republic",
+        "Bahrein":"Bahrain",
+        "Macedonia":"NorthMacedonia"
+    }
+
+    return genbank_to_gisaid_map.get(country.replace(" ",""),country)
 
 def get_loc_category(gmaps_response):
     """If location level for geocoded loc matches one in highlight list, return short name, else return None."""
@@ -377,7 +399,33 @@ def get_most_precise_location(gmaps_response, level_spec, short_name=False):
 
     return None
 
-@memoize
+def remove_strain_prefix(strain, country=None, gisaid_style=True):
+    try:
+        # get "strain"-format ID
+        match = re.search('([^\/]+)/([^\/]+/2[\d{3}[^,\S]*)$',strain)
+        if match is not None:
+            if country is not None:
+                return '/'.join([rename_country_to_gisaid_version(country) if gisaid_style else country, match.group(2)])   
+            country_abbrv = get_full_country_name(match.group(1))
+            return '/'.join([rename_country_to_gisaid_version(country_abbrv) if gisaid_style else country_abbrv, match.group(2)])
+        else:
+            return strain
+
+    except Exception as e:
+        return strain
+
+memo = {}
+def memoize_geocode(f):
+    def helper(x, y):
+        if x not in memo:
+            memo[x] = f(x, y)
+        else:
+            # print("cache hit!",x)
+            pass
+        return memo[x]
+    return helper
+
+@memoize_geocode
 def geocode_location(location_str, gmaps_client):
     """Get geo location details for a given location."""
 
@@ -409,12 +457,15 @@ def geocode_location(location_str, gmaps_client):
             }
 
 
-def write_tsv_files(response_content, gmaps_client):
+def write_tsv_files(response_content, gmaps_client, 
+                    normalize_homo_sapiens_to_human=True, 
+                    normalize_country_names_to_gisaid=True, 
+                    normalize_strain_name=True):
     """Write out tsv files."""
 
     # set standard values
     VIRUS_COL = "ncov"  # value for the "virus" column of output
-    normalize_homo_sapiens_to_human = True
+
     RETURN_COUNT_LIMIT = None  # 250 # None = return all
     # parse will set M/D/Y respectively to these values if not set (if day is not specified, assume 1st of the month. January if no month)
     placeholder_date_vals = datetime.strptime('01/01/01', '%m/%d/%y')
@@ -468,21 +519,56 @@ def write_tsv_files(response_content, gmaps_client):
                     memo[row["location"]] = loc
                 else:
                     continue
-                # nemo.append(dict(loc))
+                
 
                 if row["host"] == "Homo sapiens" and normalize_homo_sapiens_to_human:
                     host = "Human"
                 else:
                     host = row["host"].replace(" ", "-")
 
-                fields_to_write["strain"] = row["genbank_accession"]  # or maybe row["strain"]
+                #if idx==100:
+                #    exit(0)
+                
+                country = rename_country_to_gisaid_version(loc["country"]) if normalize_country_names_to_gisaid and loc["country"] is not None else loc["country"]
+
+                geolocale_for_strain = country
+                if normalize_country_names_to_gisaid and geolocale_for_strain is not None:
+                    # GISAID uses country names for most places, but uses provinces for China and England/Scotland/Wales/et al. for the UK
+                    # we should map accordingly to handle these exceptions
+                    if geolocale_for_strain == "China":
+                        if len(loc["division"])>1 and loc["division"] != geolocale_for_strain:
+                            geolocale_for_strain = loc["division"]
+                            if len(loc["location"])>1 and loc["location"] != geolocale_for_strain:
+                                geolocale_for_strain = loc["location"]
+                    if geolocale_for_strain.replace(" ","") == "UnitedKingdom":
+                        if len(loc["division"])>1 and loc["division"] != geolocale_for_strain:
+                            geolocale_for_strain = loc["division"]
+
+                collection_date = dateutil.parser.parse(row["collected"], default=placeholder_date_vals).strftime('%Y-%m-%d')  # parse().isoformat()
+                collection_year = collection_date.split("-")[0] # split ISO8601 date
+                
+                # try to use GIDAID-style strain information, if provided
+                if row["strain"] is not None and row["strain"] != "":
+                    strain = row["strain"]
+                    strain = remove_strain_prefix(strain,geolocale_for_strain,gisaid_style=normalize_country_names_to_gisaid) if normalize_strain_name else strain
+                    
+                    #strain_parts = re.split(r'[^/]+',strain,maxsplit=3)
+                    m=re.match(r'(.*)/(.*)/(.*)',strain)
+                    if not m or m.group(2) is None:
+                        #print("assembling")
+                        strain = "{country}/{strain}/{collection_year}".format(country=geolocale_for_strain,strain=strain,collection_year=collection_year) # use accession as placeholder for strain ID
+                    #print(strain)
+                else:
+                    strain = "{country}/{genbank_accession}/{collection_year}".format(country=geolocale_for_strain,genbank_accession=row["genbank_accession"],collection_year=collection_year) # use accession as placeholder for strain ID
+
+                fields_to_write["strain"] = strain.replace(" ","")
                 fields_to_write["virus"] = VIRUS_COL
                 fields_to_write["gisaid_epi_isl"] = None
                 fields_to_write["genbank_accession"] = row["genbank_accession"]
                 fields_to_write["database"] = row["database"]
-                fields_to_write["date"] = dateutil.parser.parse(row["collected"], default=placeholder_date_vals).strftime('%Y-%m-%d')  # parse().isoformat()
+                fields_to_write["date"] = collection_date
                 fields_to_write["region"] = loc["continent"]
-                fields_to_write["country"] = loc["country"]
+                fields_to_write["country"] = country
                 fields_to_write["division"] = loc["division"]
                 fields_to_write["location"] = loc["location"]
                 fields_to_write["gb_raw_location"] = row["location"]
@@ -507,7 +593,7 @@ def write_tsv_files(response_content, gmaps_client):
                 dw.writerow(fields_to_write)
 
                 # write sequence to output fasta
-                outfasta.write(">{accession}\n{seq}\n\n".format(accession=row["genbank_accession"], seq=row["sequence"]))
+                outfasta.write(">{accession}\n{seq}\n\n".format(accession=strain, seq=row["sequence"]))
 
                 if (idx + 1) % 50 == 0:
                     print("Found data for %s seqs" % (idx + 1))
@@ -527,17 +613,17 @@ def write_tsv_files(response_content, gmaps_client):
             outf.write("\t".join([location] + [str(memo[location]["lat"]), str(memo[location]["lng"])]) + "\n")
 
 
-def call_ncbi(user_email):
+def call_ncbi(user_email, virus_taxon_id="2697049"):
     """Call ncbi to get back response."""
 
-    VIRUS_TAXON_ID = "2697049"  # NCBI taxon ID
+    virus_taxon_id = str(virus_taxon_id)  # NCBI taxon ID
 
     endpoint = "https://www.ncbi.nlm.nih.gov/genomes/VirusVariation/vvsearch2/"
     params = {
         # Search criteria
         'fq': [
             '{!tag=SeqType_s}SeqType_s:("Nucleotide")',  # Nucleotide sequences (as opposed to protein)
-            'VirusLineageId_ss:({})'.format(VIRUS_TAXON_ID),  # NCBI Taxon id for SARS-CoV-2
+            'VirusLineageId_ss:({})'.format(virus_taxon_id),  # NCBI Taxon id for SARS-CoV-2
         ],
 
         # Unclear, but seems necessary.

@@ -1,6 +1,6 @@
 version 1.0
 
-workflow genbank_curate {
+workflow genbank_dump {
     input {
         File  Google_Maps_API_Key_File
         String  user_email
@@ -25,12 +25,12 @@ task pull_data {
     }
 
     command {
-        python3 ~/scripts/genbank_curate.py -k ~{Google_Maps_API_Key_File} -e ~{user_email}
+        python3 ~/scripts/genbank_dump.py -k ~{Google_Maps_API_Key_File} -e ~{user_email}
     }
 
   output {
-    File                genbank_seqs_fasta = 'genbank_seqs.fasta'
-    File                genbank_seqs_metadata = 'genbank_seq_metadata.tsv'
+    File genbank_seqs_fasta    = 'genbank_seqs.fasta'
+    File genbank_seqs_metadata = 'genbank_seq_metadata.tsv'
 }
 
   runtime {
