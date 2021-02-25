@@ -1,0 +1,7 @@
+version: 1.2
+workflows:
+ - name: Genbank_curate
+   subclass: WDL
+   primaryDescriptorPath: /WDL/Genbank_curate.wdl
+   testParameterFiles:
+    - empty.json
