@@ -544,8 +544,12 @@ def write_tsv_files(response_content, gmaps_client,
                         if len(loc["division"])>1 and loc["division"] != geolocale_for_strain:
                             geolocale_for_strain = loc["division"]
 
-                collection_date = dateutil.parser.parse(row["collected"], default=placeholder_date_vals).strftime('%Y-%m-%d')  # parse().isoformat()
-                collection_year = collection_date.split("-")[0] # split ISO8601 date
+                try:
+                    collection_date = dateutil.parser.parse(row["collected"], default=placeholder_date_vals).strftime('%Y-%m-%d')  # parse().isoformat()
+                    collection_year = collection_date.split("-")[0] # split ISO8601 date
+                except Exception as e:
+                    print('Skipping due to missing or unparsable date: ', row["genbank_accession"])
+                    continue
                 
                 # try to use GIDAID-style strain information, if provided
                 if row["strain"] is not None and row["strain"] != "":
