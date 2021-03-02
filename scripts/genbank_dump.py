@@ -501,8 +501,10 @@ def write_tsv_files(response_content, gmaps_client,
         ("title", None)
     ])
 
-    # instantiate dictionary to hold all info until write to file
+    # instantiate dictionary to hold all location info until write to file
     memo = {}
+    # set to store strain IDs to ensure uniquness
+    strain_ids_seen = set()
     with open("genbank_seqs.fasta", "w") as outfasta:
         with open("genbank_seq_metadata.tsv", "w") as outf:
 
@@ -565,7 +567,17 @@ def write_tsv_files(response_content, gmaps_client,
                 else:
                     strain = "{country}/{genbank_accession}/{collection_year}".format(country=geolocale_for_strain,genbank_accession=row["genbank_accession"],collection_year=collection_year) # use accession as placeholder for strain ID
 
-                fields_to_write["strain"] = strain.replace(" ","")
+                # if we have seen this strain before, continue to the next record
+                # this enforces a uniqeness constraint on strain IDs
+                # which is helpful because duplicates can be present on GenBank
+                # in the case of a GenBank sequence and the RefSeq designated equivalent of the same
+                if strain in strain_ids_seen:
+                    continue
+                else:
+                    # otherwise add the strain to those we have seen before
+                    strain_ids_seen.add(strain)
+
+                fields_to_write["strain"] = strain.replace(" ","")+"|"+row["genbank_accession"]
                 fields_to_write["virus"] = VIRUS_COL
                 fields_to_write["gisaid_epi_isl"] = None
                 fields_to_write["genbank_accession"] = row["genbank_accession"]
@@ -597,9 +609,9 @@ def write_tsv_files(response_content, gmaps_client,
                 dw.writerow(fields_to_write)
 
                 # write sequence to output fasta
-                outfasta.write(">{accession}\n{seq}\n\n".format(accession=strain, seq=row["sequence"]))
+                outfasta.write(">{strain}\n{seq}\n\n".format(strain=strain, seq=row["sequence"]))
 
-                if (idx + 1) % 50 == 0:
+                if (idx + 1) % 100 == 0:
                     print("Found data for %s seqs" % (idx + 1))
 
                 # to dump reply from GenBank
