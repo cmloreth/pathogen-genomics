@@ -577,7 +577,7 @@ def write_tsv_files(response_content, gmaps_client,
                     # otherwise add the strain to those we have seen before
                     strain_ids_seen.add(strain)
 
-                fields_to_write["strain"] = strain.replace(" ","")+"|"+row["genbank_accession"]
+                fields_to_write["strain"] = strain.replace(" ","") # +"|"+row["genbank_accession"]
                 fields_to_write["virus"] = VIRUS_COL
                 fields_to_write["gisaid_epi_isl"] = None
                 fields_to_write["genbank_accession"] = row["genbank_accession"]
