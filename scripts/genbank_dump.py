@@ -567,6 +567,8 @@ def write_tsv_files(response_content, gmaps_client,
                 else:
                     strain = "{country}/{genbank_accession}/{collection_year}".format(country=geolocale_for_strain,genbank_accession=row["genbank_accession"],collection_year=collection_year) # use accession as placeholder for strain ID
 
+                strain = strain.replace(" ","")
+
                 # if we have seen this strain before, continue to the next record
                 # this enforces a uniqeness constraint on strain IDs
                 # which is helpful because duplicates can be present on GenBank
@@ -577,7 +579,7 @@ def write_tsv_files(response_content, gmaps_client,
                     # otherwise add the strain to those we have seen before
                     strain_ids_seen.add(strain)
 
-                fields_to_write["strain"] = strain.replace(" ","")+"|"+row["genbank_accession"]
+                fields_to_write["strain"] = strain # +"|"+row["genbank_accession"]
                 fields_to_write["virus"] = VIRUS_COL
                 fields_to_write["gisaid_epi_isl"] = None
                 fields_to_write["genbank_accession"] = row["genbank_accession"]
