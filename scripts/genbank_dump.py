@@ -579,6 +579,13 @@ def write_tsv_files(response_content, gmaps_client,
                     # otherwise add the strain to those we have seen before
                     strain_ids_seen.add(strain)
 
+                # for SARS-CoV-2 only
+                if VIRUS_COL == "ncov":
+                    # if using GISAID-style strain IDs, enforce name format exception used for reference sequence
+                    # that is hard-coded and expected by nextstrain
+                    # see: https://github.com/nextstrain/ncov/blob/master/defaults/include.txt
+                    strain = strain.replace("China/Wuhan-Hu-1/2019", "Wuhan/Hu-1/2019")
+
 
                 fields_to_write["strain"] = strain # +"|"+row["genbank_accession"]
                 fields_to_write["virus"] = VIRUS_COL
