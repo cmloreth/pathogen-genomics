@@ -639,6 +639,8 @@ def write_tsv_files(response_content, gmaps_client,
             outf.write("\t".join([location] + [str(memo[location]["lat"]), str(memo[location]["lng"])]) + "\n")
 
 
+# based on the following by @tsibley: https://github.com/nextstrain/ncov-ingest/blob/master/bin/fetch-from-genbank
+            
 def call_ncbi(user_email, virus_taxon_id="2697049"):
     """Call ncbi to get back response."""
 
